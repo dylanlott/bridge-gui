@@ -1,7 +1,7 @@
 MetaDisk GUI
 ============
 
- Client application for interacting with the MetaDisk service.
+Client application for interacting with the MetaDisk service.
 
 ## Installation
 Install Node.js, NPM. Clone the repository, install dependencies:
