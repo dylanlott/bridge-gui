@@ -73,6 +73,17 @@ const mapMutationsToProps = () => {
           }
         }`
       };
+    },
+    addCredit: () => {
+      return {
+        mutation: gql`
+        mutation {
+          addCredit {
+            status
+          }
+        }
+        `
+      }
     }
   };
 };
@@ -250,8 +261,16 @@ export default class Billing extends Component {
     removeCard().then(() => (refetch()));
   }
 
+  addManualPayment() {
+    const {addManualPayment} = this.props.mutations;
+    const {refetch} = this.props.transactions;
+
+    addManualPayment().then(() => refetch()));
+  }
+
   render() {
     const addCreditHandler = () => {
+      console.log("addCreditHandler activated");
     };
     const linkParams = '/dashboard/billing/usage';
 
