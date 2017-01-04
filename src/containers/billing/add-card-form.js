@@ -1,15 +1,15 @@
-import React, {Component,PropTypes} from 'react';
-import {connect} from 'react-apollo';
-import {reduxForm} from 'redux-form';
+import React, { Component, PropTypes } from 'react';
+import { connect } from 'react-apollo';
+import { reduxForm } from 'redux-form';
 import gql from 'graphql-tag';
 import * as billingActions from 'redux/modules/billing';
 import AddCardPanel from 'components/billing/add-card-panel';
 
-const validation = function(values) {
+const validation = function validation(values) {
   const errors = {};
 
   if (!values.ccNumber) {
-    errors.ccNumber = "No credit card number provided."
+    errors.ccNumber = 'No credit card number provided.';
   }
 
   const visa = /^4[0-9]{12}(?:[0-9]{3})?$/.test(values.ccNumber);
@@ -19,21 +19,21 @@ const validation = function(values) {
   const jcb = /^(?:2131|1800|35\d{3})\d{11}$/.test(values.ccNumber);
   const dinersclub = /^3(?:0[0-5]|[68][0-9])[0-9]{11}$/.test(values.ccNumber);
 
-  if(!visa && !mastercard && !amex && !discover && !jcb && !dinersclub) {
-    errors.ccNumber = "Enter a valid credit card number."
+  if (!visa && !mastercard && !amex && !discover && !jcb && !dinersclub) {
+    errors.ccNumber = 'Enter a valid credit card number.';
   }
 
-  if(!values.cvv){
-    errors.cvv = "No CVV number provided."
+  if (!values.cvv) {
+    errors.cvv = 'No CVV number provided.';
   }
 
   if (!values.ccExp) {
-    errors.ccExp = "Enter an expiration date."
+    errors.ccExp = 'Enter an expiration date.';
   }
 
   const cvv = /^([0-9]{3,4})$/.test(values.cvv);
   if (!cvv) {
-    errors.cvv = "Please enter a valid CVV."
+    errors.cvv = 'Please enter a valid CVV.';
   }
 
   return errors;
@@ -51,10 +51,7 @@ const mapDispatchToProps = (dispatch) => {
   };
 };
 
-const mapMutationsToProps = ({
-  ownProps,
-  state
-}) => {
+const mapMutationsToProps = () => {
   return {
     addPaymentProcessor: (data) => {
       return {
@@ -109,11 +106,13 @@ const mapMutationsToProps = ({
 export default class AddCardForm extends Component {
   static propTypes = {
     fields: PropTypes.object.isRequired,
-    addCard: PropTypes.func.isRequired
+    addCard: PropTypes.func.isRequired,
+    mutations: PropTypes.object,
+    updatePaymentInfo: PropTypes.func
   };
 
-  handleCardSubmit(e) {
-    e.preventDefault();
+  handleCardSubmit(event) {
+    event.preventDefault();
 
     const {
       ccNumber,
@@ -159,13 +158,10 @@ export default class AddCardForm extends Component {
     const {
       fields
     } = this.props;
-    return ( <
-      AddCardPanel fields = {
-        fields
-      }
-      handleCardSubmit = {
-        this.handleCardSubmit.bind(this)
-      }
+    return (
+      <AddCardPanel
+        fields={fields}
+        handleCardSubmit={this.handleCardSubmit.bind(this)}
       />
     );
   }

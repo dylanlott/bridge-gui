@@ -1,5 +1,5 @@
-import React, {Component} from 'react';
-import {connect} from 'react-apollo';
+import React, { Component, PropTypes } from 'react';
+import { connect } from 'react-apollo';
 import gql from 'graphql-tag';
 import moment from 'moment';
 import BalancePanel from 'components/billing/balance-panel';
@@ -7,8 +7,8 @@ import PaymentInfoPanel from 'components/billing/payment-info-panel';
 import UsagePanel from 'components/billing/usage-panel';
 import AddCardForm from 'containers/billing/add-card-form';
 import TransactionsList from 'components/billing/transactions-list';
+import { setBalance, setUsage } from 'redux/modules/transaction-group';
 import 'containers/billing/billing.scss';
-import {setBalance, setUsage} from 'redux/modules/transaction-group';
 
 const transactionRangeQuery =
   gql`query usageTransactions($startDate: String!, $endDate: String!) {
@@ -59,8 +59,8 @@ const mapQueriesToProps = () => {
         }
       }`
     }
-  }
-}
+  };
+};
 
 const mapMutationsToProps = () => {
   return {
@@ -91,8 +91,8 @@ const mapDispatchToProps = {
   setUsage
 };
 
-const mapStateToProps = ({transactionGroup: {balance, usage}}) => {
-  return {balance, usage};
+const mapStateToProps = ({ transactionGroup: { balance, usage } }) => {
+  return { balance, usage };
 };
 
 let globalCounter = 0;
@@ -105,6 +105,17 @@ let globalCounter = 0;
 })
 
 export default class Billing extends Component {
+  static propTypes = {
+    query: PropTypes.func,
+    setBalance: PropTypes.func,
+    setUsage: PropTypes.func,
+    paymentProcessor: PropTypes.object,
+    transactions: PropTypes.object,
+    mutations: PropTypes.func,
+    balance: PropTypes.number,
+    usage: PropTypes.number
+  }
+
   componentWillReceiveProps(nextProps) {
     globalCounter++;
     if(globalCounter > 50) return;
@@ -136,12 +147,12 @@ export default class Billing extends Component {
       }
     });
 
-    balancePromise.then(({data: {credits, debits}, loading}) => {
+    balancePromise.then(({ data: { credits, debits }}) => {
       const balance = this.calculateBalance(credits, debits);
       this.props.setBalance(balance);
     });
 
-    usagePromise.then(({data: {credits, debits}}) => {
+    usagePromise.then(({ data: { credits, debits }}) => {
       const usage = this.calculateBalance(credits, debits);
       this.props.setUsage(usage);
     });
@@ -161,8 +172,8 @@ export default class Billing extends Component {
     const endDate = (moment(startDate).add('1', 'month').valueOf());
 
     return {
-      startDate,
-      endDate
+      startDate: dates.startDate,
+      endDate: dates.endDate
     };
   }
 
@@ -180,9 +191,53 @@ export default class Billing extends Component {
     const endDate = (moment(startDate).add('1', 'month').valueOf());
 
     return {
-      startDate,
-      endDate
+      startDate: dates.startDate,
+      endDate: dates.endDate
     };
+  }
+
+  getPaymentInfo() {
+    const { loading } = this.props.paymentProcessor;
+    if (loading || !this.props.paymentProcessor.paymentProcessor) {
+      return {};
+    }
+
+    const {defaultPaymentMethod} = this.props.paymentProcessor.paymentProcessor;
+    return defaultPaymentMethod;
+  }
+
+  getTransactions() {
+    const { loading, credits, debits } = this.props.transactions;
+
+    if (loading || !credits || !debits) {
+      return [];
+    }
+
+    const creditMsg = 'payment - Thank you!';
+    const convertedCredits = convertUnits(credits, creditMsg);
+    const debitMsg = 'successful';
+    const convertedDebits = convertUnits(debits, debitMsg);
+    const transactions = [...convertedCredits, ...convertedDebits];
+
+    return transactions.sort((t1, t2) => (t2.timestamp - t1.timestamp));
+
+    function convertUnits(units, customMsg) {
+      units.map((unit) => {
+        const transaction = { ...unit };
+        const titleizedType = unit.type.replace(/^\w/, (word) => {
+          return word.toUpperCase();
+        });
+        transaction.amount = -unit.paid_amount;
+        transaction.description = `${titleizedType} ${customMsg}`;
+        transaction.timestamp = Date.parse(unit.created);
+        transaction.created = `${
+          moment(unit.created)
+          .utc()
+          .format('MMM DD, YYYY - HH:mm')} UTC
+        `;
+        return transaction;
+      });
+    }
   }
 
   calculateBalance(credits, debits) {
@@ -196,57 +251,10 @@ export default class Billing extends Component {
     return balance;
   }
 
-  getPaymentInfo() {
-    const {loading} = this.props.paymentProcessor;
-
-    if (loading || !this.props.paymentProcessor.paymentProcessor) {
-      return {};
-    }
-
-    const {defaultPaymentMethod} = this.props.paymentProcessor.paymentProcessor;
-    return defaultPaymentMethod;
-  }
-
-  getTransactions() {
-    const {loading, credits, debits} = this.props.transactions;
-    let transactions;
-
-    if (loading || !credits || !debits) {
-      return [];
-    }
-
-    const convertedCredits = credits.map((credit) => {
-      const transaction = {...credit};
-      transaction.amount = -credit.paid_amount;
-      const titleizedType = credit.type
-        .replace(/^\w/, (w) => (w.toUpperCase()));
-      transaction.description = `${titleizedType} payment - Thank you!`;
-      transaction.timestamp = Date.parse(credit.created);
-      transaction.created = `${moment(credit.created)
-        .utc().format('MMM DD, YYYY - HH:mm')} UTC`;
-      return transaction;
-    });
-
-    const convertedDebits = debits.map((debit) => {
-      const transaction = {...debit};
-      const titleizedType = debit.type
-        .replace(/^\w/, (w) => (w.toUpperCase()));
-      transaction.description = `${titleizedType} successful`;
-      transaction.timestamp = Date.parse(debit.created);
-      transaction.created = `${moment(debit.created)
-        .utc().format('MMM DD, YYYY - HH:mm')} UTC`;
-      return transaction;
-    });
-
-    transactions = [...convertedCredits, ...convertedDebits];
-
-    return transactions.sort((t1, t2) => (t2.timestamp - t1.timestamp));
-  }
-
   removeCard() {
-    const {removeCard} = this.props.mutations;
+    const { removeCard } = this.props.mutations;
     // TODO: use apollo watchquery correctly so we don't have to call `refetch`
-    const {refetch} = this.props.paymentProcessor;
+    const { refetch } = this.props.paymentProcessor;
 
     removeCard().then(() => (refetch()));
   }
@@ -277,12 +285,17 @@ export default class Billing extends Component {
           <div className="container">
             <div className="row">
               <div className="col-xs-12 col-sm-6">
-                <BalancePanel amount={this.props.balance}
-                              addCreditHandler={addCreditHandler}
-                              cardData={this.getPaymentInfo()}/>
+                <BalancePanel
+                  amount={this.props.balance}
+                  addCreditHandler={addCreditHandler}
+                  cardData={this.getPaymentInfo()}
+                />
               </div>
               <div className="col-xs-12 col-sm-6">
-                <UsagePanel amount={this.props.usage} linkParams={linkParams}/>
+                <UsagePanel
+                  amount={this.props.usage}
+                  linkParams={linkParams}
+                />
               </div>
             </div>
             <div className="row">
@@ -303,9 +316,38 @@ export default class Billing extends Component {
             updatePaymentInfo={this.props.paymentProcessor.refetch}/> }
         </section>
         <section>
-          <TransactionsList transactions={this.getTransactions()}/>
+          <TransactionsList transactions={this.getTransactions()} />
         </section>
       </div>
     );
   }
+}
+
+function getDates(loading, paymentProcessor) {
+  const today = new Date();
+  const billingDate =
+    (loading || !paymentProcessor)
+    ? today.getDate()
+    : paymentProcessor.billingDate;
+  const daysInMonth = (new Date(
+    today.getFullYear(),
+    (today.getMonth() - 1),
+    0
+  )).getDate();
+  const startDayOfMonth =
+    (billingDate > daysInMonth)
+    ? daysInMonth
+    : billingDate;
+  const startDate = Date.parse(new Date(
+    today.getFullYear(),
+    (today.getMonth() - 1),
+    startDayOfMonth
+  ));
+
+  const endDate = (moment(startDate).add('1', 'month').unix() * 1000);
+
+  return {
+    startDate,
+    endDate
+  };
 }
